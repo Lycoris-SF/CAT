@@ -21,6 +21,7 @@ import io.objectbox.example.kotlin.Item
 import io.objectbox.example.kotlin.ItemLegal
 import io.objectbox.example.kotlin.ItemType
 import io.objectbox.example.kotlin.ObjectBoxSC
+import io.objectbox.example.kotlin.QueryActivity
 import io.objectbox.example.kotlin.R
 import io.objectbox.example.kotlin.databinding.FragmentEditItemBinding
 import io.objectbox.example.kotlin.ui.Adapter.GridBuyAdapter
@@ -39,6 +40,7 @@ class FragmentItemEditPage : Fragment(), DataListener{
     private lateinit var adapter2: GridSellAdapter
     private lateinit var selectedItemType: ItemType
     private lateinit var selectedLegal: ItemLegal
+    private var itemId: Long = -1
     private lateinit var existingItem: Item
     private lateinit var viewModel: SharedViewModel
 
@@ -53,11 +55,10 @@ class FragmentItemEditPage : Fragment(), DataListener{
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         viewModel = ViewModelProvider(requireActivity())[SharedViewModel::class.java]
-
         //back home
         (activity as AppCompatActivity).supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        val itemId = arguments?.getLong(EXTRA_ITEM_ID, -1) ?: -1
+        itemId = arguments?.getLong(EXTRA_ITEM_ID, -1) ?: -1
         itemTypeSpinner = binding.itemType
         val itemTypes = arrayOf("Item", "Commodity", "Location")
         val adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, itemTypes)
@@ -73,14 +74,12 @@ class FragmentItemEditPage : Fragment(), DataListener{
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
                 // If given the Object ID, get an existing Item Object to edit.
-                val idItem = withContext(Dispatchers.IO) {
-                    if (itemId != -1L) {
-                        ObjectBoxSC.boxStore.boxFor(Item::class.java)[itemId]
-                    } else {
-                        null
+                if (itemId != -1L){
+                    val idItem = withContext(Dispatchers.IO) {
+                        ObjectBoxSC.boxStore.boxFor(Item::class.java).get(itemId)
                     }
+                    existingItem = idItem
                 }
-                if (idItem != null) existingItem = idItem
                 // Set a listener to handle item selection
                 itemTypeSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
                     override fun onItemSelected(
@@ -96,11 +95,12 @@ class FragmentItemEditPage : Fragment(), DataListener{
                             else -> {
                                 ItemType.ITEM} // Default to Item
                         }
+                        viewModel.type_share.value = selectedItemType.toString()
                         //setUpViews(existingItem)
                     }
 
                     override fun onNothingSelected(parentView: AdapterView<*>?) {
-                        // Do nothing here if needed
+                        viewModel.type_share.value = ItemType.ITEM.toString()
                     }
                 }
                 itemLegalSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -116,9 +116,10 @@ class FragmentItemEditPage : Fragment(), DataListener{
                             else -> {
                                 ItemLegal.NEUTRAL} // Default to Item
                         }
+                        viewModel.legal_share.value = selectedLegal.toString()
                     }
                     override fun onNothingSelected(parentView: AdapterView<*>?) {
-                        // Do nothing here if needed
+                        viewModel.legal_share.value = ItemLegal.NEUTRAL.toString()
                     }
                 }
                 //load
@@ -134,42 +135,54 @@ class FragmentItemEditPage : Fragment(), DataListener{
                         "CONTRABAND" -> ItemLegal.CONTRABAND
                         else -> ItemLegal.NEUTRAL // Default to Item
                     }
-                    viewModel.item_id = existingItem.id
+                    viewModel.item_id.value = existingItem.id
+                    viewModel.type_share.value = existingItem.type
+                    viewModel.legal_share.value = existingItem.legality
                     viewModel.title_share.value = existingItem.title
                     viewModel.description_share.value = existingItem.description
                 }else{
-                    val item = Item(type="ITEM", legality="NEUTRAL", title="new", description = "Welcome to CAT", date = Date())
+                    activity?.title = "New item"
                     selectedItemType = ItemType.ITEM
                     selectedLegal = ItemLegal.NEUTRAL
-                    val newId = ObjectBoxSC.boxStore.boxFor(Item::class.java).put(item)
-                    existingItem = item
-                    viewModel.item_id = newId
-                    viewModel.title_share.value = existingItem.title
-                    viewModel.description_share.value = existingItem.description
+                    viewModel.item_id.value = -1
+                    viewModel.title_share.value = ""
+                    viewModel.description_share.value = ""
                 }
-                setUpViews(existingItem)
+                setUpViews()
             }
         }
     }
 
-    private fun setUpViews(existingItem: Item?) {
-        existingItem?.type?.let {
-            val position = selectedItemType.ordinal
-            itemTypeSpinner.setSelection(position)
+    private fun setUpViews() {
+        if (itemId != -1L) {
+            existingItem?.type?.let {
+                val position = selectedItemType.ordinal
+                itemTypeSpinner.setSelection(position)
+            }
+            existingItem?.legality?.let {
+                val position = selectedLegal.ordinal
+                itemLegalSpinner.setSelection(position)
+            }
+
+
+            adapter1 = GridBuyAdapter(requireContext(), existingItem)
+            adapter2 = GridSellAdapter(requireContext(), existingItem)
+            adapter1.onItemLongClickListener = {
+                0
+                binding.buttonSave.performClick()
+            }
+            adapter2.onItemLongClickListener = {
+                0
+                binding.buttonSave.performClick()
+            }
+
+            setupRecyclerView(adapter1, R.id.recyclerView1)
+            setupRecyclerView(adapter2, R.id.recyclerView2)
+
+            binding.editTitleItem.setText(existingItem?.title)
+            binding.editDescriptionItem.setText(existingItem?.description)
         }
-        existingItem?.legality?.let {
-            val position = selectedLegal.ordinal
-            itemLegalSpinner.setSelection(position)
-        }
 
-        adapter1 = GridBuyAdapter(requireContext(), existingItem)
-        adapter2 = GridSellAdapter(requireContext(), existingItem)
-
-        setupRecyclerView(adapter1,R.id.recyclerView1)
-        setupRecyclerView(adapter2,R.id.recyclerView2)
-
-        binding.editTitleItem.setText(existingItem?.title)
-        binding.editDescriptionItem.setText(existingItem?.description)
         binding.editTitleItem.addTextChangedListener{
             text -> viewModel.title_share.value = text.toString()
         }
@@ -195,22 +208,26 @@ class FragmentItemEditPage : Fragment(), DataListener{
             }
 
             lifecycleScope.launch() {
-                putItem(title,text,existingItem)
-                activity?.finish()
+                putItem(title,text)
+                withContext(Dispatchers.Main) {
+                    binding.buttonSave.isEnabled = true
+                }
             }
         }
         binding.buttonAdd.setOnClickListener{
             binding.buttonAdd.isEnabled = false
 
-            if (existingItem == null){
-                val text = "Invalid Item, create it first"
-                val duration = Toast.LENGTH_SHORT
-                val toast = Toast.makeText(activity?.applicationContext, text, duration)
-                toast.show()
+            if (itemId == -1L){
+                popToast("Invalid Item, create it first")
                 binding.buttonAdd.isEnabled = true
                 return@setOnClickListener
             }
             else{
+                lifecycleScope.launch() {
+                    val title = viewModel.title_share.value.toString()
+                    val description = viewModel.description_share.value.toString()
+                    putItem(title,description)
+                }
                 val dialog = FragmentBuySellAdd.newInstance(existingItem.id)
                 dialog.setDataListener(this)
                 dialog.show(childFragmentManager, "BuySellAdd")
@@ -218,8 +235,45 @@ class FragmentItemEditPage : Fragment(), DataListener{
                 return@setOnClickListener
             }
         }
+        binding.buttonAssess.setOnClickListener {
+            binding.buttonAssess.isEnabled = false
+
+            if (itemId == -1L) {
+                popToast("Invalid Item, create it first")
+                binding.buttonAssess.isEnabled = true
+                return@setOnClickListener
+            }
+            else if(selectedItemType==ItemType.ITEM){
+                popToast("'Item' is not allowed to assess")
+                binding.buttonAssess.isEnabled = true
+                return@setOnClickListener
+            }
+            else {
+                lifecycleScope.launch {
+                    QueryActivity.mergeData(existingItem)
+                    val title = viewModel.title_share.value.toString()
+                    val description = viewModel.description_share.value.toString()
+                    putItem(title, description)
+
+                    withContext(Dispatchers.Main) {
+                        adapter1 = GridBuyAdapter(requireContext(), existingItem)
+                        adapter2 = GridSellAdapter(requireContext(), existingItem)
+                        setupRecyclerView(adapter1, R.id.recyclerView1)
+                        setupRecyclerView(adapter2, R.id.recyclerView2)
+
+                        binding.buttonAssess.isEnabled = true
+                    }
+                }
+                return@setOnClickListener
+            }
+        }
     }
 
+    private fun popToast(text: String){
+        val duration = Toast.LENGTH_SHORT
+        val toast = Toast.makeText(activity?.applicationContext, text, duration)
+        toast.show()
+    }
     private fun setupRecyclerView(adapter: RecyclerView.Adapter<*>, recyclerViewId: Int) {
         // Reference to your RecyclerView
         val recyclerView: RecyclerView = binding.root.findViewById(recyclerViewId)
@@ -237,20 +291,37 @@ class FragmentItemEditPage : Fragment(), DataListener{
     private suspend fun putItem(
         itemTitle: String,
         itemText: String,
-        existingItem: Item?
-    ) = withContext(Dispatchers.IO) {
-        if (existingItem != null) {
-            existingItem?.apply {
-                type = selectedItemType.toString()
-                legality = selectedLegal.toString()
-                title = itemTitle
-                description = itemText
-                date = Date()
+    ) {
+        val searchResults = QueryActivity.searchForItemByName(itemTitle)
+        if (itemId != -1L) {
+            if (searchResults.isNotEmpty() && searchResults.first().id == existingItem.id) {
+                withContext(Dispatchers.IO) {
+                    existingItem.apply {
+                        type = selectedItemType.toString()
+                        legality = selectedLegal.toString()
+                        title = itemTitle
+                        description = itemText
+                        date = Date()
+                    }
+                    ObjectBoxSC.boxStore.boxFor(Item::class.java).put(existingItem)
+                }
+                popToast("Item Saved")
+            } else {
+                popToast("Item already exist")
             }
-            ObjectBoxSC.boxStore.boxFor(Item::class.java).put(existingItem)
-        } else {
-            val newItem = Item(type = selectedItemType.toString(), legality = "NEUTRAL", title = itemTitle, description = itemText, date = Date())
-            ObjectBoxSC.boxStore.boxFor(Item::class.java).put(newItem)
+        }
+        else {
+            if (searchResults.isNotEmpty()){
+                popToast("Item already exist")
+            }
+            else{
+                val newItem = Item(type = selectedItemType.toString(), legality = selectedLegal.toString(), title = itemTitle, description = itemText, date = Date())
+                withContext(Dispatchers.IO) {
+                    itemId = ObjectBoxSC.boxStore.boxFor(Item::class.java).put(newItem)
+                }
+                popToast("Item Saved")
+                requireActivity().finish()
+            }
         }
     }
 
@@ -270,9 +341,9 @@ class FragmentItemEditPage : Fragment(), DataListener{
 
     override fun onDataAvailable(data: Item) {
         existingItem = data
-        setUpViews(existingItem)
+        setUpViews()
         lifecycleScope.launch() {
-            putItem(existingItem.title.toString(),existingItem.description.toString(),existingItem)
+            putItem(existingItem.title.toString(),existingItem.description.toString())
         }
     }
 }

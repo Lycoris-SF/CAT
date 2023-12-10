@@ -24,8 +24,10 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import io.objectbox.example.kotlin.AssessmentActivity
 import io.objectbox.example.kotlin.Item
+import io.objectbox.example.kotlin.ItemLegal
 import io.objectbox.example.kotlin.ItemType
 import io.objectbox.example.kotlin.ObjectBoxSC
+import io.objectbox.example.kotlin.QueryActivity
 import io.objectbox.example.kotlin.R
 import io.objectbox.example.kotlin.databinding.FragmentCommentItemBinding
 import io.objectbox.example.kotlin.ui.Adapter.GridItemDecoration
@@ -42,6 +44,8 @@ class FragmentItemEditAssess : Fragment() , DataListener2{
     private lateinit var adapter1: ExtraAdapter
     private lateinit var adapter2: ExtraAdapter
     private lateinit var selectedItemType: ItemType
+    private lateinit var selectedLegal: ItemLegal
+    private var itemId: Long = -1
     private lateinit var existingItem: Item
     private lateinit var viewModel: SharedViewModel
 
@@ -63,55 +67,35 @@ class FragmentItemEditAssess : Fragment() , DataListener2{
         //back home
         (activity as AppCompatActivity).supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        var itemId = arguments?.getLong(EXTRA_ITEM_ID, -1) ?: -1
+        itemId = arguments?.getLong(EXTRA_ITEM_ID, -1) ?: -1
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
                 // If given the Object ID, get an existing Item Object to edit.
-                val idItem = withContext(Dispatchers.IO) {
-                    if (itemId != -1L) {
-                        ObjectBoxSC.boxStore.boxFor(Item::class.java)[itemId]
-                    } else {
-                        null
+                if (itemId != -1L){
+                    val idItem = withContext(Dispatchers.IO) {
+                        ObjectBoxSC.boxStore.boxFor(Item::class.java).get(itemId)
                     }
-                }
-                if (idItem != null) {
                     existingItem = idItem
                 }
                 //load
                 if (itemId != -1L) {
-                    selectedItemType = when (existingItem.type) {
-                        "COMMODITY" -> ItemType.COMMODITY
-                        "LOCATION" -> ItemType.LOCATION
-                        else -> {
-                            ItemType.ITEM} // Default to Item
-                    }
+                    selectedItemType = ItemType.valueOf(existingItem.type ?: "ITEM")
+                    selectedLegal = ItemLegal.valueOf(existingItem.legality ?: "NEUTRAL")
                     activity?.title = selectedItemType.toString()
                 }
                 else{
                     activity?.title = "New item"
-                    selectedItemType = ItemType.ITEM
-                    itemId = viewModel.item_id
-                    existingItem = ObjectBoxSC.boxStore.boxFor(Item::class.java)[itemId]
+                    selectedItemType = ItemType.valueOf(viewModel.type_share.value ?: "ITEM")
+                    selectedLegal = ItemLegal.valueOf(viewModel.legal_share.value ?: "NEUTRAL")
                 }
                 //edit title of page
-                setUpViews(existingItem,itemId)
+                setUpViews()
             }
         }
     }
 
-    //back to last
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
-            android.R.id.home -> {
-                //requireActivity().onBackPressed()
-                return true
-            }
-        }
-        return super.onOptionsItemSelected(item)
-    }
-
-    private fun setUpViews(existingItem: Item?,itemId: Long) {
+    private fun setUpViews() {
         if(itemId==-1L){
             binding.titleReadItem.text = "New item"
             binding.DescriptionReadItem.text = "Creating new item in DataManager"
@@ -146,6 +130,20 @@ class FragmentItemEditAssess : Fragment() , DataListener2{
                 binding.DescriptionReadItem.text = "Item must not be empty"
             }
         })
+        viewModel.type_share.observe(viewLifecycleOwner, Observer {
+            text -> selectedItemType = when (text) {
+                "COMMODITY" -> ItemType.COMMODITY
+                "LOCATION" -> ItemType.LOCATION
+                else -> ItemType.ITEM // Default to Item
+            }
+        })
+        viewModel.legal_share.observe(viewLifecycleOwner, Observer {
+            text -> selectedLegal= when (text) {
+                "LEGAL" -> ItemLegal.LEGAL
+                "CONTRABAND" -> ItemLegal.CONTRABAND
+                else -> ItemLegal.NEUTRAL // Default to Item
+            }
+        })
 
         binding.buttonSave.setOnClickListener {
             // Prevent multiple clicks.
@@ -159,23 +157,23 @@ class FragmentItemEditAssess : Fragment() , DataListener2{
                 binding.titleReadItem.text = "Empty!"
                 binding.DescriptionReadItem.setTextColor(Color.RED)
                 binding.DescriptionReadItem.text = "Item must not be empty"
+                popToast("Invalid Item, create it first")
                 binding.buttonSave.isEnabled = true
                 return@setOnClickListener
             }
 
             lifecycleScope.launch() {
-                putItem(title,text,existingItem)
-                activity?.finish()
+                putItem(title,text)
+                withContext(Dispatchers.Main) {
+                    binding.buttonSave.isEnabled = true
+                }
             }
         }
         binding.buttonAdd.setOnClickListener{
             binding.buttonAdd.isEnabled = false
 
-            if (existingItem == null){
-                val text = "Invalid Item, create it first"
-                val duration = Toast.LENGTH_SHORT
-                val toast = Toast.makeText(activity?.applicationContext, text, duration)
-                toast.show()
+            if (itemId == -1L){
+                popToast("Invalid Item, create it first")
                 binding.buttonAdd.isEnabled = true
                 return@setOnClickListener
             }
@@ -189,11 +187,8 @@ class FragmentItemEditAssess : Fragment() , DataListener2{
         }
         binding.buttonAssess.setOnClickListener {
             binding.buttonAssess.isEnabled = false
-            if (existingItem == null){
-                val text = "Invalid Item, create it first"
-                val duration = Toast.LENGTH_SHORT
-                val toast = Toast.makeText(activity?.applicationContext, text, duration)
-                toast.show()
+            if (itemId == -1L){
+                popToast("Invalid Item, create it first")
                 binding.buttonAssess.isEnabled = true
                 return@setOnClickListener
             }
@@ -204,33 +199,48 @@ class FragmentItemEditAssess : Fragment() , DataListener2{
             }
         }
         binding.imageView1.setOnClickListener{
-            imageBool = true
-            val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-            startActivityForResult(intent, REQUEST_CODE)
+            if (itemId != -1L) {
+                imageBool = true
+                val intent =
+                    Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                startActivityForResult(intent, REQUEST_CODE)
+            }
         }
         binding.imageView1.setOnLongClickListener{
-            if (existingItem != null) {
-                existingItem.imageData1 = Item.createDefaultImage()
+            if (itemId != -1L) {
+                if (existingItem != null) {
+                    existingItem.imageData1 = Item.createDefaultImage()
+                }
+                val imageData: ByteArray? = existingItem?.imageData1
+                val bitmap = imageData?.let { BitmapFactory.decodeByteArray(imageData, 0, it.size) }
+                binding.imageView1.setImageBitmap(bitmap)
             }
-            val imageData: ByteArray? = existingItem?.imageData1
-            val bitmap = imageData?.let { BitmapFactory.decodeByteArray(imageData, 0, it.size) }
-            binding.imageView1.setImageBitmap(bitmap)
             true
         }
         binding.imageView2.setOnClickListener{
-            imageBool = false
-            val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-            startActivityForResult(intent, REQUEST_CODE)
+            if (itemId != -1L) {
+                imageBool = false
+                val intent =
+                    Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                startActivityForResult(intent, REQUEST_CODE)
+            }
         }
         binding.imageView2.setOnLongClickListener{
-            if (existingItem != null) {
-                existingItem.imageData2 = Item.createDefaultImage()
+            if (itemId != -1L) {
+                if (existingItem != null) {
+                    existingItem.imageData2 = Item.createDefaultImage()
+                }
+                val imageData: ByteArray? = existingItem?.imageData2
+                val bitmap = imageData?.let { BitmapFactory.decodeByteArray(imageData, 0, it.size) }
+                binding.imageView2.setImageBitmap(bitmap)
             }
-            val imageData: ByteArray? = existingItem?.imageData2
-            val bitmap = imageData?.let { BitmapFactory.decodeByteArray(imageData, 0, it.size) }
-            binding.imageView2.setImageBitmap(bitmap)
             true
         }
+    }
+    private fun popToast(text: String){
+        val duration = Toast.LENGTH_SHORT
+        val toast = Toast.makeText(activity?.applicationContext, text, duration)
+        toast.show()
     }
     private fun UpdateAssess(existingItem: Item?){
         adapter1 = ExtraAdapter(requireContext(), existingItem,true, true)
@@ -298,23 +308,44 @@ class FragmentItemEditAssess : Fragment() , DataListener2{
         }
 
         lifecycleScope.launch(){
-            putItem(existingItem.title.toString(),existingItem.description.toString(),existingItem)
+            putItem(existingItem.title.toString(),existingItem.description.toString())
         }
     }
 
     private suspend fun putItem(
         itemTitle: String,
         itemText: String,
-        existingItem: Item?
-    ) = withContext(Dispatchers.IO) {
-        if (existingItem != null) {
-            existingItem?.apply {
-                type = selectedItemType.toString()
-                title = itemTitle
-                description = itemText
-                date = Date()
+    ) {
+        val searchResults = QueryActivity.searchForItemByName(itemTitle)
+        if (itemId != -1L) {
+            if (searchResults.isNotEmpty() && searchResults.first().id == existingItem.id) {
+                withContext(Dispatchers.IO) {
+                    existingItem.apply {
+                        type = selectedItemType.toString()
+                        legality = selectedLegal.toString()
+                        title = itemTitle
+                        description = itemText
+                        date = Date()
+                    }
+                    ObjectBoxSC.boxStore.boxFor(Item::class.java).put(existingItem)
+                }
+                popToast("Item Saved")
+            } else {
+                popToast("Item already exist")
             }
-            ObjectBoxSC.boxStore.boxFor(Item::class.java).put(existingItem)
+        }
+        else {
+            if (searchResults.isNotEmpty()){
+                popToast("Item already exist")
+            }
+            else{
+                val newItem = Item(type = selectedItemType.toString(), legality = selectedLegal.toString(), title = itemTitle, description = itemText, date = Date())
+                withContext(Dispatchers.IO) {
+                    itemId = ObjectBoxSC.boxStore.boxFor(Item::class.java).put(newItem)
+                }
+                popToast("Item Saved")
+                requireActivity().finish()
+            }
         }
     }
 
@@ -345,22 +376,26 @@ class FragmentItemEditAssess : Fragment() , DataListener2{
     }
 
     private fun AssessDemo(){
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val result = AssessmentActivity().MakeAssessment(existingItem)
-                withContext(Dispatchers.Main) {
-                    if(result==0){
-                        val text = "Invalid Item, assess COMMODITY/LOCATION only"
-                        val duration = Toast.LENGTH_SHORT
-                        val toast = Toast.makeText(activity?.applicationContext, text, duration)
-                        toast.show()
-                    }
-                    else{
-                        UpdateAssess(existingItem)
+        lifecycleScope.launch() {
+            val title = viewModel.title_share.value.toString()
+            val description = viewModel.description_share.value.toString()
+            putItem(title,description)
+            withContext(Dispatchers.Main) {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        val result = AssessmentActivity().MakeAssessment(existingItem)
+                        withContext(Dispatchers.Main) {
+                            if(result==0){
+                                popToast("Invalid Item, assess COMMODITY/LOCATION only")
+                            }
+                            else{
+                                UpdateAssess(existingItem)
+                            }
+                        }
+                    } catch (e: Exception) {
+
                     }
                 }
-            } catch (e: Exception) {
-
             }
         }
     }
@@ -381,9 +416,9 @@ class FragmentItemEditAssess : Fragment() , DataListener2{
 
     override fun onDataAvailable(data: Item) {
         existingItem = data
-        setUpViews(existingItem, existingItem.id)
+        setUpViews()
         lifecycleScope.launch(){
-            putItem(existingItem.title.toString(),existingItem.description.toString(),existingItem)
+            putItem(existingItem.title.toString(),existingItem.description.toString())
         }
     }
 }

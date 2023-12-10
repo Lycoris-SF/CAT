@@ -6,6 +6,16 @@
     android:layout_height="match_parent"
     tools:context=".ui.Page.FragmentItemEditPage">
 
+    <Button
+        android:id="@+id/buttonAssess"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:text="@string/action_assess"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/buttonSave"
+        app:layout_constraintStart_toEndOf="@+id/buttonAdd" />
+
     <Spinner
         android:id="@+id/itemType"
         android:layout_width="180dp"

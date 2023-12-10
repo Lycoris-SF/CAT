@@ -10,7 +10,11 @@ import android.widget.LinearLayout
 import androidx.fragment.app.DialogFragment
 import io.objectbox.example.kotlin.Item
 import io.objectbox.example.kotlin.ObjectBoxSC
+import io.objectbox.example.kotlin.QueryActivity
 import io.objectbox.example.kotlin.databinding.FragmentBuyselladdBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Date
 
 class FragmentBuySellAdd : DialogFragment(){
     private lateinit var binding: FragmentBuyselladdBinding
@@ -38,20 +42,22 @@ class FragmentBuySellAdd : DialogFragment(){
 
         when(binding.itemType.selectedItem.toString()){
             "BUY" ->{
-                val newItem = binding.editText1.text
-                data.buyList?.add(newItem.toString())
-                val newPrice = binding.editText2.text
-                data.itemBuyPrice?.add(newPrice.toString())
-                val newStorage = binding.editText3.text
-                data.itemBuyStorage?.add(newStorage.toString())
+                val newItem = binding.editText1.text.toString()
+                data.buyList?.add(newItem)
+                val newPrice = binding.editText2.text.toString()
+                data.itemBuyPrice?.add(newPrice)
+                val newStorage = binding.editText3.text.toString()
+                data.itemBuyStorage?.add(newStorage)
+                QueryActivity.tempAddNewItem(data,newItem,newPrice,newStorage,true)
             }
             else -> {
-                val newItem = binding.editText1.text
-                data.sellList?.add(newItem.toString())
-                val newPrice = binding.editText2.text
-                data.itemSellPrice?.add(newPrice.toString())
-                val newStorage = binding.editText3.text
-                data.itemSellStorage?.add(newStorage.toString())
+                val newItem = binding.editText1.text.toString()
+                data.sellList?.add(newItem)
+                val newPrice = binding.editText2.text.toString()
+                data.itemSellPrice?.add(newPrice)
+                val newStorage = binding.editText3.text.toString()
+                data.itemSellStorage?.add(newStorage)
+                QueryActivity.tempAddNewItem(data,newItem,newPrice,newStorage,false)
             }
         }
 

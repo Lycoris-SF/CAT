@@ -105,15 +105,9 @@ class SearchPageActivity : AppCompatActivity() {
         autoCompleteTextView.setAdapter(autoCompleteAdapter)
     }
     private fun searchfor(name: String) {
-        val lowerCaseName = name.lowercase()
+        val searchResults = QueryActivity.searchForItemByName(name)
 
-        val searchQuery = ObjectBoxSC.boxStore.boxFor(Item::class.java)
-            .query().equal(Item_.title, lowerCaseName, QueryBuilder.StringOrder.CASE_INSENSITIVE).build()
-
-        val result = searchQuery.find()
-        searchQuery.close()
-
-        if (result.isEmpty()) {
+        if (searchResults.isEmpty()) {
             startActivity(ItemViewManager.intent(this))
         } else {
             //old
@@ -123,8 +117,8 @@ class SearchPageActivity : AppCompatActivity() {
                 // Add more cases as needed
             }*/
             when (mode) {
-                SearchMode.EDIT_ITEM -> startActivity(ItemEditManager.intent(this, result.first().id))
-                SearchMode.ITEM_VIEW -> startActivity(ItemViewManager.intent(this, result.first().id))
+                SearchMode.EDIT_ITEM -> startActivity(ItemEditManager.intent(this, searchResults.first().id))
+                SearchMode.ITEM_VIEW -> startActivity(ItemViewManager.intent(this, searchResults.first().id))
             }
         }
     }

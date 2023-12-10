@@ -4,6 +4,7 @@ import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,6 +17,8 @@ import io.objectbox.example.kotlin.R
 
 class GridSellAdapter(private val context: Context, private var item: Item?) :
     RecyclerView.Adapter<GridSellAdapter.ViewHolder>() {
+
+    var onItemLongClickListener: ((Int) -> Unit)? = null
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.linear_col_recyclerview, parent, false)
@@ -72,6 +75,7 @@ class GridSellAdapter(private val context: Context, private var item: Item?) :
             }
             holder.textView2.setOnClickListener {
                 val editText = EditText(holder.itemView.context)
+                editText.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
                 editText.setText(currentPrice)
 
                 val dialog = AlertDialog.Builder(holder.itemView.context)
@@ -79,9 +83,9 @@ class GridSellAdapter(private val context: Context, private var item: Item?) :
                     .setView(editText)
                     .setPositiveButton("Save") { _, _ ->
                         val editedText = editText.text.toString()
-
+                        val editedFloat = editedText.toFloatOrNull()
                         //update
-                        currentItem?.itemSellPrice?.set(adapterPosition-1, editedText)
+                        currentItem?.itemSellPrice?.set(adapterPosition-1, String.format("%.2f", editedFloat))
 
                         notifyItemChanged(adapterPosition)
                     }
@@ -91,6 +95,7 @@ class GridSellAdapter(private val context: Context, private var item: Item?) :
             }
             holder.textView3.setOnClickListener {
                 val editText = EditText(holder.itemView.context)
+                editText.inputType = InputType.TYPE_CLASS_NUMBER
                 editText.setText(currentStorage)
 
                 val dialog = AlertDialog.Builder(holder.itemView.context)
@@ -114,6 +119,8 @@ class GridSellAdapter(private val context: Context, private var item: Item?) :
                 item?.itemSellStorage?.removeAt(adapterPosition - 1)
 
                 notifyItemRemoved(adapterPosition)
+                notifyItemRangeChanged(adapterPosition, itemCount)
+                onItemLongClickListener?.invoke(adapterPosition)
                 true
             }
         }
