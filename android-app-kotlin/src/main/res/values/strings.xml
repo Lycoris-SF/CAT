@@ -1,0 +1,39 @@
+<resources>
+
+    <string name="app_name">Commodities Assessment Tool</string>
+    <string name="item_Manager">item Manager</string>
+    <string name="Manager_Search">Search in Manager</string>
+    <string name="Manager_Edit">Edit in Manager</string>
+    <string name="item_Search">Search in items</string>
+    <string name="item_View">View in items</string>
+
+    <string name="hint_itemType">Item Type</string>
+    <string name="hint_title">Title</string>
+    <string name="hint_description">Description</string>
+    <string name="hint_author">Author</string>
+    <string name="hint_searchbar">Commodities/Locations</string>
+    <string name="action_add_item">Add item</string>
+    <string name="action_add_author">Add author</string>
+    <string name="click_to_remove">Tap and hold a item to remove it</string>
+    <string name="action_save">Save</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_add">Add</string>
+    <string name="action_assess">Assess</string>
+    <string name="item_meta_format">Added on %1$s by %1$s</string>
+
+    <string name="db_error_text_title">Sorry, it appears the database was corrupted</string>
+    <string name="db_error_text_description">Please send us the database file for analysis. Then uninstall and install this app again, or clear data for this app in your device settings.</string>
+    <string name="db_error_send">Send email to developer</string>
+
+    <string name="title_activity_navmenu">NavmenuActivity</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="nav_header_title">CAT</string>
+    <string name="nav_header_subtitle">Commodities Assessment Tool</string>
+    <string name="nav_header_desc">Navigation header</string>
+    <string name="action_settings">Settings</string>
+
+    <string name="data_manager">Data Manager</string>
+    <string name="ob_home">Home</string>
+
+</resources>
